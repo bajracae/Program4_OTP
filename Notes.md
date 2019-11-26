@@ -58,3 +58,15 @@
     - Note that you specifically do not have to do any fancy random number generation
     - rand() is fine
     - last character keygen outputs should be a newline. All error text must be output to stderr
+
+
+Braxton notes:
+- #define A 
+  #if A:
+    print A
+  #else:
+    print notA
+  #endif
+  
+- encryption and decryption files are the same
+ - except one "+" then modulizes and the other "-" then modulizes
