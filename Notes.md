@@ -70,3 +70,4 @@ Braxton notes:
   
 - encryption and decryption files are the same
  - except one "+" then modulizes and the other "-" then modulizes
+Two clients have the same source (same file but with if statement... look at image from the image) and the two daemons have the same source (same file... look at image from the image), same file
