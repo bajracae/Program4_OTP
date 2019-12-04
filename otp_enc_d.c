@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,78 +7,57 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-void setUpServer(char * command, int numCommand, int portNumber);
+void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
 
-int main(int argc, char *argv[]) {
-    int numCommand = argc;
-    char * command = argv[0];
-    int listening_port = atoi(argv[1]);
-    setUpServer(command, numCommand, listening_port);
-    
-}
-
-void setUpServer(char * command, int numCommand, int portNumber) {
-    int listenSocketFD, establishedConnectionFD, charsRead;
+int main(int argc, char *argv[])
+{
+	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
 	char buffer[256];
 	struct sockaddr_in serverAddress, clientAddress;
 
-    if (numCommand < 2) { 
-        fprintf(stderr,"USAGE: %s port\n", command); 
-        exit(1); 
-    }
+	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
+
+	// Set up the address struct for this process (the server)
+	memset((char *)&serverAddress, '\0', sizeof(serverAddress)); // Clear out the address struct
+	portNumber = atoi(argv[1]); // Get the port number, convert to an integer from a string
+	serverAddress.sin_family = AF_INET; // Create a network-capable socket
+	serverAddress.sin_port = htons(portNumber); // Store the port number
+	serverAddress.sin_addr.s_addr = INADDR_ANY; // Any address is allowed for connection to this process
+
+	// Set up the socket
+	listenSocketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
+	if (listenSocketFD < 0) error("ERROR opening socket");
+
+	// Enable the socket to begin listening
+	if (bind(listenSocketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to port
+		error("ERROR on binding");
+	listen(listenSocketFD, 5); // Flip the socket on - it can now receive up to 5 connections
+
+	// Accept a connection, blocking if one is not available until one connects
+	sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
+	establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
+	if (establishedConnectionFD < 0) error("ERROR on accept");
+
+	// // Get the message from the client and display it
+	// memset(buffer, '\0', 256);
+	// charsRead = recv(establishedConnectionFD, buffer, 255, 0); // Read the client's message from the socket
+	// if (charsRead < 0) error("ERROR reading from socket");
+	// printf("SERVER: I received this from the client: \"%s\"\n", buffer);
+    // 
+	// // Send a Success message back to the client
+	// charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
+	// if (charsRead < 0) error("ERROR writing to socket");
+	// close(establishedConnectionFD); // Close the existing socket which is connected to the client
+	// close(listenSocketFD); // Close the listening socket
+	// return 0; 
     
-    // Set up the address struct for this process (the server)
-    memset((char *)&serverAddress, '\0', sizeof(serverAddress));// Clear out the address struct
-    serverAddress.sin_family = AF_INET;// Create a network-capable socket
-    serverAddress.sin_port = htons(portNumber);// Store the port number
-    serverAddress.sin_addr.s_addr = INADDR_ANY;// Any address is allowed for connection to this process
-    
-    // Set up the socket
-    listenSocketFD = socket(AF_INET, SOCK_STREAM, 0);// Create the socket
-    if (listenSocketFD < 0) error("ERROR opening socket");
-    
-    // Enable the socket to begin listening
-    if (bind(listenSocketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)// Connect socket to port
-        error("ERROR on binding");
-    listen(listenSocketFD, 5);// Flip the socket on - it can now receive up to 5 connections
-    
-    // set up the server
-    // include a while loop that goes on forever
-    
-    // set up an infinite loop
-        // accept, hang until one connecion comes in 
-        // fork() 5 children
-        
-    pid_t spawnpid = -5; // Declare and initialize the variable 
-    int count = 0;
-    while(count < 5) {
-        // Manage the child process
-        // Check the number of child processes
-        // Decrement the done child
-        // Use waitpid here
-        int pid = 0;
-        int exitState = 0;
-        int exitmes = 0;
-        int sigmes = 0;
-        while((pid = waitpid(-1, &exitState, WNOHANG)) > 0){ // While child processes exist
-            if(WIFEXITED(exitState) != 0) { // If the child terminates normally
-                exitmes = WEXITSTATUS(exitState);
-                printf("background process %d is done. ", pid);
-                fflush(stdout);
-                printf("exit value %d\n", exitmes); // Print out the exit value
-                fflush(stdout);
-            }
-            else {
-                sigmes = WTERMSIG(exitState); // If the child terminates with a signal
-                printf("background process %d was successfully killed. ", pid);
-                fflush(stdout);
-                printf("terminated by signal %d\n", sigmes); // Print out the terminating signal
-                fflush(stdout);
-            }
-        }
+    int c = 0;
+    while(c < 5) {
+        // Use waitpid to manage done children
         
         // Accept a connection, blocking if one is not available until one connects
+        // NEED TO DO: hang until a connection comes in
         sizeOfClientInfo = sizeof(clientAddress);// Get the size of the address for the client that will connect
         establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
         if (establishedConnectionFD < 0) error("ERROR on accept");
@@ -89,21 +69,23 @@ void setUpServer(char * command, int numCommand, int portNumber) {
                 exit(1);
                 break;
             case 0:
-                // use a separate process to handle the rest of the transaction, which will occur on the newly accepted socket
-                // make a child process to check to make sure it is communicating with otp_enc
-                // While loop to read the whole data from client
-                // child recieves from otp_enc plaintext and key from communcation socket
-                // child will send back the ciphertext to otp_enc process that it is connected to via the same communication socket
-                // use establishedConnectionFD to send and recieve data in the child process
-                // close establishedConnectionFD
-                
-                close(establishedConnectionFD);
+                // Check if the otp_enc_d is communicating with opt_enc
+                // Loop to read the whole data from clientAddress
+                // Do encryption/decryption
+                // Send the ciphertext to the otp_enc process with the same communcation socket
+                while()
+                    charsRead = recv(establishedConnectionFD, buffer, 255, 0);
                 break;
             default:
-                // increment child process
-                count++;
+            
                 break;
-        }   
+        } 
+        c++;
     }
-    close(listenSocketFD);// Close the listening socketreturn 0;
+}
+
+void encryption(char * plaintext, char * key) {
+    int encrypt = 0;
+    
+    
 }
