@@ -11,7 +11,9 @@ void error(const char *msg) { perror(msg); exit(1); } // Error function used for
 
 int main(int argc, char *argv[])
 {
-	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
+	int numChild = 0; // counter for the number of children
+	
+	int listenSocketFD, establishedConnectionFD, portNumber, charsRead charsWritten;
 	socklen_t sizeOfClientInfo;
 	char buffer[256];
 	struct sockaddr_in serverAddress, clientAddress;
@@ -52,16 +54,19 @@ int main(int argc, char *argv[])
 	// close(listenSocketFD); // Close the listening socket
 	// return 0; 
     
-    int c = 0;
-    while(c < 5) {
-        // Use waitpid to manage done children
+    while(true) {
+		if(numChild >= 5) {
+			break;
+		}
         
-        // Accept a connection, blocking if one is not available until one connects
-        // NEED TO DO: hang until a connection comes in
+		// Accept a connection, blocking if one is not available until one connects
+        // Hangs automatically
         sizeOfClientInfo = sizeof(clientAddress);// Get the size of the address for the client that will connect
         establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
         if (establishedConnectionFD < 0) error("ERROR on accept");
         
+		pid_t spawnpid = -5;
+		
         spawnpid = fork(); // Forks happens here
         switch (spawnpid) {
             case -1:
@@ -70,22 +75,63 @@ int main(int argc, char *argv[])
                 break;
             case 0:
                 // Check if the otp_enc_d is communicating with opt_enc
-                // Loop to read the whole data from clientAddress
-                // Do encryption/decryption
-                // Send the ciphertext to the otp_enc process with the same communcation socket
-                while()
-                    charsRead = recv(establishedConnectionFD, buffer, 255, 0);
+				
+				// Loop to read the whole data from client
+				int j = 0;
+				do {
+					charsRead = recv(establishedConnectionFD, buffer, 255, 0);
+					j++;
+				} while(buffer[j] != '#');
+				
+				char * plaintext = NULL;
+				char * key = NULL;
+				int i;
+				int k = 0;
+				int l = 0;
+				for(i = 0; i < strlen(charsRead); i++) {
+					if(charsRead[i] == '^') {
+						k = i+1;
+						do {
+							strcat(plaintext, charsRead[k]);
+							k++;
+						} while(charsRead[k] != '!');
+					}
+					if(charsRead[i] == '!') {
+						l = i+1;
+						do {
+							strcat(key, charsRead[l]);
+							l++;
+						} while(charsRead[l] != '#');
+					}
+				}
+				
+				// Do encryption/decryption
+				char * encrypted_message = encryption(plaintext, key);
+				
+				// Send the ciphertext to the otp_enc process with the same communcation socket	
+				while(charsWritten < strlen(encrypted_message)) {
+					// Send message to server
+					charsWritten = send(listenSocketFD, encrypted_message, strlen(encrypted_message), 0); // Write to the server
+					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+					if (charsWritten < strlen(encrypted_message)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+				}
+				
                 break;
             default:
-            
+				numChild++; // increment the number of children
                 break;
-        } 
-        c++;
+        }
     }
 }
 
-void encryption(char * plaintext, char * key) {
+char * encryption(char * plaintext, char * key) {
     int encrypt = 0;
-    
-    
+	char * message = NULL;
+    int i;
+	for(i = 0; i < strlen(plaintext); i++) {
+		encrypt = (plaintext[i] + key[i]) % 27;
+		message[i] = encrypt + '0';
+	}
+	return message;
 }
+
