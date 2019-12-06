@@ -8,19 +8,19 @@
 #include <netdb.h> 
 #include <stdbool.h>
 
-char * fileToCharString(char * filename);
-char * combinedFiles(char * buffer_p, char * buffer_k);
-bool fileHasBadChar(char * file);
-bool plainLessThanKey(char * plaintext, char * key);
-
 void error(const char *msg) { perror(msg); exit(0); } // Error function used for reporting issues
+
+char * fileToCharString(char * filename);
+char * getBigString(char * plaintext, char * key);
+bool hasBadChar(char * file);
+char * readEncryptedString(int socketFD, int charsRead, int plaintextLen, char * buffer);
 
 int main(int argc, char *argv[])
 {
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char buffer[256];
+	char buffer[1000000];
     
 	if (argc < 3) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
 
@@ -40,61 +40,79 @@ int main(int argc, char *argv[])
 	// Connect to server
 	if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to address
 		error("CLIENT: ERROR connecting");
-		
-	// Exit the program if the file has a bad file
-	// if((fileHasBadChar(argv[1]) == true) || (fileHasBadChar(argv[2]) == true)) {
-    //     fprintf(stderr, "otp_enc error: input contains bad characters\n");
-    //     exit(1);
-    // }	
-	// 
-	// Check if the length to see if the chars are the same length
-    // if(plainLessThanKey(argv[1], argv[2]) == false) {
-    //     fprintf(stderr, "otp_enc error: input contains bad characters\n");
-    //     exit(1);
-    // }
-	
-	// // Send handshake message
-	// char * handshake = "E";
-	// charsWritten = send(socketFD, handshake, strlen(handshake), 0);
-	// if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	// 
-	// // Receive handshake confirmation
-	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	// charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	// if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	// 
-	// if(strcmp(buffer, handshake) != 0) {
-	// 	fprintf(stderr,"The client and server do not match\n");
-	// 	exit(2);
-	// }
-
-    // Read the file content into the buffer    
-    char * buffer_p = fileToCharString(argv[1]);
-    char * buffer_k = fileToCharString(argv[2]);
-	char * buffer_final = combinedFiles(buffer_p, buffer_k);
-	
-	// Sending the length of the buffer_final
-	int len = strlen(buffer_final);
-
-	charsWritten = send(socketFD, &len, sizeof(int), 0); // Write to the server
+        
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // MY CODE FROM HERE ON
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    bool isFirstRun = true;
+    if(isFirstRun == true) {
+        // Perform a handshake to make sure the two files are communicating with each other
+        // Send a "X" from server
+        char handshake[256];
+        strcpy(handshake, "X");
+        charsWritten = send(socketFD, handshake, strlen(handshake), 0); // Write to the server
+        if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+        printf("handshake: %s\n", handshake);
+        fflush(stdout);        
+        
+        // Receive a "X" from client
+        memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+        charsRead = recv(socketFD, buffer, 255, 0);
+        if (charsRead < 0) error("ERROR writing to socket");
+        
+        // Exit if the connections do not match
+        if(strcmp(buffer, handshake) != 0) {
+            fprintf(stderr, "The server could not connect with the client\n");
+            exit(2);
+        }
+        isFirstRun = false;
+    }
+    
+    // Create the "big" string that will be sent to the server
+    char * plaintext = fileToCharString(argv[1]);
+    char * key = fileToCharString(argv[2]);
+    
+    if(strlen(plaintext) > strlen(key)) {
+        fprintf(stderr, "otp_enc error: plaintext is longer than the key\n");
+        exit(1);
+    }
+    if((hasBadChar(plaintext) == true) || (hasBadChar(key) == true)) {
+        fprintf(stderr, "otp_enc error: one of the files has a bad character\n");
+        exit(1);
+    }
+    
+    char * bigString = getBigString(plaintext, key);
+    
+    int strLength = strlen(bigString);
+    
+    // Send the string length to the server
+    charsWritten = send(socketFD, &strLength, sizeof(int), 0); // Write to the server
 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	
-	// Sending the buffer_final itself
-	printf("buffer_final: %s\n", buffer_final);
-	charsWritten = send(socketFD, buffer_final, strlen(buffer_final), 0); // Write to the server
+    
+    // Send the "big" string to the server
+	charsWritten = send(socketFD, bigString, strlen(bigString), 0); // Write to the server
 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	if (charsWritten < strlen(buffer_final)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+	if (charsWritten < strlen(bigString)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 	fflush(stdout);
-
-	// Receive a confirmation from the server
-	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	
-	fprintf(stdout, "%s\n", buffer);
-
-	close(socketFD); // Close the socket
-	return 0;
+    
+    // Receive a confirmation
+    memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+    charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+    if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+    
+    // Receive the encrypted string from the server
+    // char encryptedText[strLength];
+    char * encryptedText = readEncryptedString(socketFD, charsRead, strlen(plaintext), buffer);
+    
+    // Send confirmation
+    memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+    charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+    if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+    
+    fprintf(stdout, "%s\n", encryptedText);
+    
+    close(socketFD); // Close the socket
+    return 0;
 }
 
 //https://riptutorial.com/c/example/8274/get-lines-from-a-file-using-getline--
@@ -124,79 +142,47 @@ char * fileToCharString(char * filename) {
     return buf;
 }
 
-char * combinedFiles(char * buffer_p, char * buffer_k) {
-	int size_p = strlen(buffer_p);
-	int size_k = strlen(buffer_k);
-	int total_size = (size_p + size_k) + 3;
-	char * final_msg = (char *)malloc(sizeof(char) * total_size);
+char * getBigString(char * plaintext, char * key) {
+    int pLen = strlen(plaintext);
+	int kLen = strlen(key);
+    int totalLen = ((pLen + kLen) + 5);
+    // char bString[totalLen];
+    char * bString = (char *)malloc(sizeof(char) * totalLen);
+    
+    memset(bString, '\0', sizeof(*bString)); // Clear out the buffer again for reuse
+	strcat(bString, "^");
+	strcat(bString, plaintext);
+	strcat(bString, "!");
+	strcat(bString, key);
+	strcat(bString, "#");
 	
-	memset(final_msg, '\0', sizeof(final_msg)); // Clear out the buffer again for reuse
-	strcat(final_msg, "^");
-	strcat(final_msg, buffer_p);
-	strcat(final_msg, "!");
-	strcat(final_msg, buffer_k);
-	strcat(final_msg, "#");
-	
-	return final_msg;
+	return bString;
 }
 
-// https://stackoverflow.com/questions/39949502/q-how-to-compare-char-from-text-file-in-c
-bool fileHasBadChar(char * file) {
-    FILE * f;
-    f = fopen(file, "r");
+bool hasBadChar(char * file) {
     char letter[27] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
-    char c_file;
-    
-    do {
-        c_file = fgetc(f);
-        int i;
-        for(i = 0; i < 27 - 1; i++) {
-            if(c_file != letter[i]) {
+    int i, j;
+    for(i = 0; i < strlen(file); i++) {
+        for(j = 0; j < strlen(letter); j++) {
+            if(file[i] != letter[j]) {
                 return true;
             }
         }
-    } while(c_file != EOF);
-    fclose(f);
+    }
     return false;
 }
 
-// https://www.geeksforgeeks.org/c-program-to-count-the-number-of-characters-in-a-file/
-bool plainLessThanKey(char * plaintext, char * key) {
-    FILE * p = fopen(plaintext, "r");
-    FILE * k = fopen(key, "r");
-    int p_count = 0;
-    int k_count = 0;
-    char p_char;
-    char k_char;
-    
-    if (p == NULL) { 
-        printf("Could not open file %s", plaintext); 
-		fflush(stdout);
+char * readEncryptedString(int socketFD, int charsRead, int plaintextLen, char * buffer) {
+    // char eText[plaintextLen];
+    char * eText = (char *)malloc(sizeof(char) * plaintextLen);
 
-        return 0;
+    int i;
+    for(i = 0; i < plaintextLen; i++) {
+        memset(buffer, '\0', sizeof(*buffer)); // Clear out the buffer again for reuse
+        charsRead = recv(socketFD, buffer, 1000, 0); // Read data from the socket, leaving \0 at end
+        if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+        strcat(eText, buffer);
     }
-	if(k == NULL) {
-		printf("Could not open file %s", key); 
-		fflush(stdout);
-
-        return 0;
-	}
     
-    do {
-        p_char = fgetc(p);   
-        p_count++;     
-    } while(p_char != EOF);
-    
-    do {
-        k_char = fgetc(k);
-        k_count++;
-    } while(k_char != EOF);
-    
-    if(p_count <= k_count) {
-        return true;
-    }
-	printf("Plaintext is bigger than key.\n"); 
-	fflush(stdout);
-    return false;
+    return eText;
 }
-
