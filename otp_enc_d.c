@@ -41,27 +41,9 @@ int main(int argc, char *argv[])
 	if(listen(listenSocketFD, 5) < 0) {
 		error("ERROR on binding");
 	}
-
+	
 	// Accept a connection, blocking if one is not available until one connects
-	//sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
-	//establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
-	//if (establishedConnectionFD < 0) error("ERROR on accept");
-
-	// // Get the message from the client and display it
-	// memset(buffer, '\0', 256);
-	// charsRead = recv(establishedConnectionFD, buffer, 255, 0); // Read the client's message from the socket
-	// if (charsRead < 0) error("ERROR reading from socket");
-	// printf("SERVER: I received this from the client: \"%s\"\n", buffer);
-    // 
-	// // Send a Success message back to the client
-	// charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
-	// if (charsRead < 0) error("ERROR writing to socket");
-	// close(establishedConnectionFD); // Close the existing socket which is connected to the client
-	// close(listenSocketFD); // Close the listening socket
-	// return 0; 
 	sizeOfClientInfo = sizeof(clientAddress);// Get the size of the address for the client that will connect
-	// Accept a connection, blocking if one is not available until one connects
-	// Hangs automatically
 	establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
 	if (establishedConnectionFD < 0) error("ERROR on accept");
 	
@@ -71,10 +53,6 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		// // Accept a connection, blocking if one is not available until one connects
-        // // Hangs automatically
-        // establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
-        // if (establishedConnectionFD < 0) error("ERROR on accept");
 		pid_t spawnpid = -5;
 		int j = 0;
 		int size = 0;
@@ -86,37 +64,33 @@ int main(int argc, char *argv[])
                 exit(1);
                 break;
             case 0:
-				if(numChild == 0) {
-					// Receive handshake message
-					memset(handshake_rec, '\0', sizeof(handshake_rec)); // Clear out the buffer again for reuse
-					charsRead = recv(establishedConnectionFD, handshake_rec, 255, 0);
-					if (charsRead < 0) error("ERROR writing to socket");
-					printf("handshake_rec: %s\n", handshake_rec);
-					fflush(stdout);
-				
-					// Send handshake confirmation
-					char * handshake_sent = "E";
-					charsWritten = send(establishedConnectionFD, handshake_sent, strlen(handshake_sent), 0); // Write to the server
-					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-					printf("handshake_sent: %s\n", handshake_sent);
-					fflush(stdout);
-				
-					if(strcmp(handshake_rec, handshake_sent) != 0) {
-						fprintf(stderr, "The server could not connect with the client\n");
-						exit(2);
-					}
-				}
+				// if(numChild == 0) {
+				// 	// Receive handshake message
+				// 	memset(handshake_rec, '\0', sizeof(handshake_rec)); // Clear out the buffer again for reuse
+				// 	charsRead = recv(establishedConnectionFD, handshake_rec, 255, 0);
+				// 	if (charsRead < 0) error("ERROR writing to socket");
+				// 	printf("handshake_rec: %s\n", handshake_rec);
+				// 	fflush(stdout);
+				// 
+				// 	// Send handshake confirmation
+				// 	char * handshake_sent = "E";
+				// 	charsWritten = send(establishedConnectionFD, handshake_sent, strlen(handshake_sent), 0); // Write to the server
+				// 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+				// 	printf("handshake_sent: %s\n", handshake_sent);
+				// 	fflush(stdout);
+				// 
+				// 	if(strcmp(handshake_rec, handshake_sent) != 0) {
+				// 		fprintf(stderr, "The server could not connect with the client\n");
+				// 		exit(2);
+				// 	}
+				// }
 				// Receive the size of the buffer_final
 				charsRead = recv(establishedConnectionFD, &size, sizeof(int), 0);
 				if (charsRead < 0) error("ERROR writing to socket");
 				
-				// size = atoi(buffer);
 				printf("size: %d\n", size);
 				fflush(stdout);
-
-				// charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
-				// if (charsRead < 0) error("ERROR writing to socket");
-
+				
 				char * enc = malloc(size + 1);
 			
 				// Read the buffer_final sent from client to enc
@@ -127,7 +101,7 @@ int main(int argc, char *argv[])
 					// fflush(stdout);
 					j++;
 				} while(!strstr(buffer,"#"));
-				printf("enc: %s\n", enc);
+				printf("IN D enc: %s\n", enc);
 				fflush(stdout);
 				
 				char * plaintext = (char *)malloc(sizeof(char) * size);
@@ -157,11 +131,11 @@ int main(int argc, char *argv[])
 					}
 				}
 				
-				printf("plaintext: %s\n", plaintext);
-				fflush(stdout);
-				
-				printf("key: %s\n", key);
-				fflush(stdout);
+				// printf("plaintext: %s\n", plaintext);
+				// fflush(stdout);
+				// 
+				// printf("key: %s\n", key);
+				// fflush(stdout);
 
 				// Do encryption/decryption
 				char * encrypted_message = encryption(plaintext, key, size);
@@ -171,13 +145,10 @@ int main(int argc, char *argv[])
 					// Send message to server
 					charsWritten = send(listenSocketFD, encrypted_message, strlen(encrypted_message), 0); // Write to the server
 					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-					// if (charsWritten < strlen(encrypted_message)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-					// fflush(stdout);
-					printf("Here\n");
+					if (charsWritten < strlen(encrypted_message)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 					fflush(stdout);
 				}
 				
-				// fprintf(stdout, "%s\n", encrypted_message);
 				close(establishedConnectionFD);
 				exit(0);
                 break;

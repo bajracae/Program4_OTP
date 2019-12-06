@@ -20,7 +20,6 @@ int main(int argc, char *argv[])
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	// char * serverHost = "localhost";
 	char buffer[256];
     
 	if (argc < 3) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
@@ -41,41 +40,33 @@ int main(int argc, char *argv[])
 	// Connect to server
 	if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to address
 		error("CLIENT: ERROR connecting");
-	// // Get input message from user
-	// printf("CLIENT: Enter text to send to the server, and then hit enter: ");
-	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer array
-	// fgets(buffer, sizeof(buffer) - 1, stdin); // Get input from the user, trunc to buffer - 1 chars, leaving \0
-	// buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
-
+		
 	// Exit the program if the file has a bad file
-/*	if((fileHasBadChar(argv[1]) == true) || (fileHasBadChar(argv[2]) == true)) {
-        fprintf(stderr, "otp_enc error: input contains bad characters\n");
-        exit(1);
-    }
-*/	
+	// if((fileHasBadChar(argv[1]) == true) || (fileHasBadChar(argv[2]) == true)) {
+    //     fprintf(stderr, "otp_enc error: input contains bad characters\n");
+    //     exit(1);
+    // }	
+	// 
 	// Check if the length to see if the chars are the same length
     // if(plainLessThanKey(argv[1], argv[2]) == false) {
     //     fprintf(stderr, "otp_enc error: input contains bad characters\n");
     //     exit(1);
     // }
 	
-	// Send handshake message
-	char * handshake = "E";
-	charsWritten = send(socketFD, handshake, strlen(handshake), 0);
-	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	
-	// Receive handshake confirmation
-	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	
-	if(strcmp(buffer, handshake) != 0) {
-		fprintf(stderr,"The client and server do not match\n");
-		exit(2);
-	}
-	
-	// printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
-	// fflush(stdout);
+	// // Send handshake message
+	// char * handshake = "E";
+	// charsWritten = send(socketFD, handshake, strlen(handshake), 0);
+	// if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	// 
+	// // Receive handshake confirmation
+	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+	// charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+	// if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+	// 
+	// if(strcmp(buffer, handshake) != 0) {
+	// 	fprintf(stderr,"The client and server do not match\n");
+	// 	exit(2);
+	// }
 
     // Read the file content into the buffer    
     char * buffer_p = fileToCharString(argv[1]);
@@ -84,21 +75,12 @@ int main(int argc, char *argv[])
 	
 	// Sending the length of the buffer_final
 	int len = strlen(buffer_final);
-	printf("len: %d\n", len);
-	fflush(stdout);
+
 	charsWritten = send(socketFD, &len, sizeof(int), 0); // Write to the server
 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
 	
-	// if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-	// fflush(stdout);
-	
-	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	// charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	// if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	// // printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
-	// // fflush(stdout);
-
 	// Sending the buffer_final itself
+	printf("buffer_final: %s\n", buffer_final);
 	charsWritten = send(socketFD, buffer_final, strlen(buffer_final), 0); // Write to the server
 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
 	if (charsWritten < strlen(buffer_final)) printf("CLIENT: WARNING: Not all data written to socket!\n");
@@ -108,8 +90,6 @@ int main(int argc, char *argv[])
 	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
 	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	// printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
-	// fflush(stdout);
 	
 	fprintf(stdout, "%s\n", buffer);
 
