@@ -92,15 +92,19 @@ int main(int argc, char *argv[])
 				fflush(stdout);
 				
 				char * enc = malloc(size + 1);
+				
+				memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 			
 				// Read the buffer_final sent from client to enc
 				do {
 					charsRead = recv(establishedConnectionFD, buffer, 255, 0);
+					// printf("charsRead: %d\n", charsRead);
+					// fflush(stdout);
 					strcat(enc, buffer);
 					// printf("%s\n", buffer);
 					// fflush(stdout);
-					j++;
-				} while(!strstr(buffer,"#"));
+				} while(!strstr(buffer, '#'));
+				
 				printf("IN D enc: %s\n", enc);
 				fflush(stdout);
 				
