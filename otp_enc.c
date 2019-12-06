@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char * serverHost = "localhost";
+	// char * serverHost = "localhost";
 	char buffer[256];
     
 	if (argc < 3) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
@@ -58,65 +58,60 @@ int main(int argc, char *argv[])
     //     fprintf(stderr, "otp_enc error: input contains bad characters\n");
     //     exit(1);
     // }
+	
+	// Send handshake message
+	char * handshake = "E";
+	charsWritten = send(socketFD, handshake, strlen(handshake), 0);
+	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	
+	// Receive handshake confirmation
+	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+	
+	if(strcmp(buffer, handshake) != 0) {
+		fprintf(stderr,"The client and server do not match\n");
+		exit(2);
+	}
+	
+	// printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	// fflush(stdout);
 
     // Read the file content into the buffer    
     char * buffer_p = fileToCharString(argv[1]);
     char * buffer_k = fileToCharString(argv[2]);
-	
 	char * buffer_final = combinedFiles(buffer_p, buffer_k);
 	
+	// Sending the length of the buffer_final
 	int len = strlen(buffer_final);
-	printf("1\n");
-	
+	printf("len: %d\n", len);
+	fflush(stdout);
 	charsWritten = send(socketFD, &len, sizeof(int), 0); // Write to the server
-	// if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	
 	// if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 	// fflush(stdout);
-	// sprintf(buffer, "%d", len);
-	// charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
-	// if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	// if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-	// printf("2\n");
 	
-	
-	
-	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	printf("4\n");
+	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+	// charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+	// if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+	// // printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	// // fflush(stdout);
+
+	// Sending the buffer_final itself
+	charsWritten = send(socketFD, buffer_final, strlen(buffer_final), 0); // Write to the server
+	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	if (charsWritten < strlen(buffer_final)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 	fflush(stdout);
 
-	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	printf("NOT IN DAEMON CLIENT: I received this from the server: \"%s\"\n", buffer);
-	fflush(stdout);
-	
-	printf("6\n");
-	fflush(stdout);
-    // while(charsWritten < strlen(buffer_final)) {
-        // Send message to server
-    	charsWritten = send(socketFD, buffer_final, strlen(buffer_final), 0); // Write to the server
-    	printf("charW%d\n", charsWritten);
-		if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-    	if (charsWritten < strlen(buffer_final)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-		fflush(stdout);
-
-	// }
-	printf("7\n");
-	fflush(stdout);
-
-
-    
-	// // Get return message from server
+	// Receive a confirmation from the server
 	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	printf("9\n");
-	fflush(stdout);
 	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	printf("NOT IN DAEMON CLIENT: I received this from the server: \"%s\"\n", buffer);
-	fflush(stdout);
-
-	printf("10\n");
-	fflush(stdout);
-
+	// printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	// fflush(stdout);
+	
+	fprintf(stdout, "%s\n", buffer);
 
 	close(socketFD); // Close the socket
 	return 0;
@@ -171,7 +166,6 @@ bool fileHasBadChar(char * file) {
     f = fopen(file, "r");
     char letter[27] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
     char c_file;
-    bool flag;
     
     do {
         c_file = fgetc(f);
@@ -221,7 +215,7 @@ bool plainLessThanKey(char * plaintext, char * key) {
     if(p_count <= k_count) {
         return true;
     }
-	printf("Plain is bigger than key.\n"); 
+	printf("Plaintext is bigger than key.\n"); 
 	fflush(stdout);
     return false;
 }

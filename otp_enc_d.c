@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
-char * encryption(char * plaintext, char * key);
+char * encryption(char * plaintext, char * key, int size);
 void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
 
 int main(int argc, char *argv[])
@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead, charsWritten;
 	socklen_t sizeOfClientInfo;
 	char buffer[256];
+	char handshake_rec[256];
 	struct sockaddr_in serverAddress, clientAddress;
 
 	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
@@ -25,7 +26,6 @@ int main(int argc, char *argv[])
 	// Set up the address struct for this process (the server)
 	memset((char *)&serverAddress, '\0', sizeof(serverAddress)); // Clear out the address struct
 	portNumber = atoi(argv[1]); // Get the port number, convert to an integer from a string
-	printf("enc_d.c %d\n", portNumber);
 	serverAddress.sin_family = AF_INET; // Create a network-capable socket
 	serverAddress.sin_port = htons(portNumber); // Store the port number
 	serverAddress.sin_addr.s_addr = INADDR_ANY; // Any address is allowed for connection to this process
@@ -60,29 +60,24 @@ int main(int argc, char *argv[])
 	// close(listenSocketFD); // Close the listening socket
 	// return 0; 
 	sizeOfClientInfo = sizeof(clientAddress);// Get the size of the address for the client that will connect
-
+	// Accept a connection, blocking if one is not available until one connects
+	// Hangs automatically
+	establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
+	if (establishedConnectionFD < 0) error("ERROR on accept");
+	
     while(true) {
-		printf("1111\n");
-		fflush(stdout);
 
 		if(numChild >= 5) {
 			break;
 		}
-		printf("2222\n");
-		fflush(stdout);
 
-		// Accept a connection, blocking if one is not available until one connects
-        // Hangs automatically
-        establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
-        if (establishedConnectionFD < 0) error("ERROR on accept");
-        printf("333\n");
-		fflush(stdout);
+		// // Accept a connection, blocking if one is not available until one connects
+        // // Hangs automatically
+        // establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
+        // if (establishedConnectionFD < 0) error("ERROR on accept");
 		pid_t spawnpid = -5;
 		int j = 0;
 		int size = 0;
-		int len = 0;
-		printf("hereaeijan\n");
-		fflush(stdout);
 
         spawnpid = fork(); // Forks happens here
         switch (spawnpid) {
@@ -91,52 +86,55 @@ int main(int argc, char *argv[])
                 exit(1);
                 break;
             case 0:
-                // Check if the otp_enc_d is communicating with opt_enc
+				if(numChild == 0) {
+					// Receive handshake message
+					memset(handshake_rec, '\0', sizeof(handshake_rec)); // Clear out the buffer again for reuse
+					charsRead = recv(establishedConnectionFD, handshake_rec, 255, 0);
+					if (charsRead < 0) error("ERROR writing to socket");
+					printf("handshake_rec: %s\n", handshake_rec);
+					fflush(stdout);
 				
-				// Loop to read the whole data from client
+					// Send handshake confirmation
+					char * handshake_sent = "E";
+					charsWritten = send(establishedConnectionFD, handshake_sent, strlen(handshake_sent), 0); // Write to the server
+					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+					printf("handshake_sent: %s\n", handshake_sent);
+					fflush(stdout);
+				
+					if(strcmp(handshake_rec, handshake_sent) != 0) {
+						fprintf(stderr, "The server could not connect with the client\n");
+						exit(2);
+					}
+				}
+				// Receive the size of the buffer_final
 				charsRead = recv(establishedConnectionFD, &size, sizeof(int), 0);
+				if (charsRead < 0) error("ERROR writing to socket");
 				
 				// size = atoi(buffer);
 				printf("size: %d\n", size);
 				fflush(stdout);
-				
-				printf("charsRead1 %d\n", charsRead);
-				fflush(stdout);
 
-				charsRead = send(establishedConnectionFD, "IN DAEMON I am the server, and I got your message", 39, 0); // Send success back
-				printf("charsRead2 %d\n", charsRead);
-				fflush(stdout);
+				// charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
+				// if (charsRead < 0) error("ERROR writing to socket");
 
-
-				if (charsRead < 0) error("ERROR writing to socket");
-				
-				printf("i AM here\n");
-				fflush(stdout);
-
-				char *enc = malloc(size + 1);
+				char * enc = malloc(size + 1);
 			
+				// Read the buffer_final sent from client to enc
 				do {
-					printf("Also here\n");
-					fflush(stdout);
 					charsRead = recv(establishedConnectionFD, buffer, 255, 0);
 					strcat(enc, buffer);
-					printf("%s\n", buffer);
-					fflush(stdout);
+					// printf("%s\n", buffer);
+					// fflush(stdout);
 					j++;
 				} while(!strstr(buffer,"#"));
-				
-				printf("Now I am here too\n");
+				printf("enc: %s\n", enc);
 				fflush(stdout);
-
+				
 				char * plaintext = (char *)malloc(sizeof(char) * size);
 				char * key = (char *)malloc(sizeof(char) * size);
 				int i;
 				int k = 0;
 				int l = 0;
-				printf("THIS\n");
-				fflush(stdout);
-
-
 
 				for(i = 0; i < strlen(buffer); i++) {
 					if(buffer[i] == '^') {
@@ -161,27 +159,27 @@ int main(int argc, char *argv[])
 				
 				printf("plaintext: %s\n", plaintext);
 				fflush(stdout);
-
+				
 				printf("key: %s\n", key);
 				fflush(stdout);
 
-				printf("HELLOW\n");
-				fflush(stdout);
-
 				// Do encryption/decryption
-				char * encrypted_message = encryption(plaintext, key);
-				printf("HELLOW\n");
-				fflush(stdout);
+				char * encrypted_message = encryption(plaintext, key, size);
 
 				// Send the ciphertext to the otp_enc process with the same communcation socket	
 				while(charsWritten < strlen(encrypted_message)) {
 					// Send message to server
 					charsWritten = send(listenSocketFD, encrypted_message, strlen(encrypted_message), 0); // Write to the server
 					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-					if (charsWritten < strlen(encrypted_message)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+					// if (charsWritten < strlen(encrypted_message)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+					// fflush(stdout);
+					printf("Here\n");
 					fflush(stdout);
 				}
 				
+				// fprintf(stdout, "%s\n", encrypted_message);
+				close(establishedConnectionFD);
+				exit(0);
                 break;
             default:
 				numChild++; // increment the number of children
@@ -190,36 +188,33 @@ int main(int argc, char *argv[])
     }
 }
 
-char * encryption(char * plaintext, char * key) {
-	printf("ecript1: d\n");
-	fflush(stdout);
-
+char * encryption(char * plaintext, char * key, int size) {
     int encrypt = 0;
-	char * message = NULL;
+	char * message = (char*)malloc(sizeof(char) * size);
+	char c;
     int i;
 	for(i = 0; i < strlen(plaintext); i++) {
-		printf("ecript2: d\n");
-		fflush(stdout);
 
-		encrypt = ((plaintext[i] - 65) + (key[i] - 65)) % 27;
-		printf("ecript3: d\n");
-				fflush(stdout);
-		printf("encrypt: %d\n", encrypt);
-		fflush(stdout);
+		if(plaintext[i] == ' ') {
+			plaintext[i] = '[';
+		}
 		
+		encrypt = ((plaintext[i] - 65) + (key[i] - 65)) % 27;
+
 		encrypt += 65;
 		
-		printf("encrypt: %d\n", encrypt);
-		fflush(stdout);
+		if(encrypt == 91) {
+			encrypt = 32;
+		}
 
-		sprintf(message[i], "%d", encrypt)
-		// message[i] = encrypt + '0';
-		printf("MESSAGE: %s\n", message);
-		fflush(stdout);
+		c = (char)encrypt;
+		
+		message[i] = c;
 	}
-	printf("ecript4: d\n");
-	fflush(stdout);
-
+	message[i] = 0;
+	// printf("MESSAGE: %s\n", message);
+	// fflush(stdout);
+	
 	return message;
 }
 
