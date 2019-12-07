@@ -15,6 +15,8 @@ char * readBigString(int establishedConnectionFD, int charsRead, int lengthofStr
 char * getPlaintext(int lengthofString, char * string);
 char * getKey(int lengthofString, char * string);
 char * encryption(int lengthofString, char * pText, char * kText);
+void send_wrapper(int fd, char * buffer, int total_length);
+void recv_wrapper(int fd, char * buffer, int total_length);
 
 int main(int argc, char *argv[]) 
 {
@@ -22,7 +24,7 @@ int main(int argc, char *argv[])
     
     int listenSocketFD, establishedConnectionFD, portNumber, charsRead, charsWritten;
 	socklen_t sizeOfClientInfo;
-	char buffer[800000];
+	char buffer[80000];
 	struct sockaddr_in serverAddress, clientAddress;
     
     if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
@@ -85,15 +87,17 @@ int main(int argc, char *argv[])
                     strcpy(handshake, "X");
                     // printf("length: %d\n", (int)strlen(handshake));
                     // fflush(stdout);
-                    charsWritten = send(establishedConnectionFD, handshake, strlen(handshake), 0); // Write to the server
-                    if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+                    // charsWritten = send(establishedConnectionFD, handshake, strlen(handshake), 0); // Write to the server
+                    // if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+                    send_wrapper(establishedConnectionFD, handshake, strlen(handshake));
                     // printf("handshake: %s\n", handshake);
                     // fflush(stdout);
                     
                     // Receive a "X" from client
                 	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-                	charsRead = recv(establishedConnectionFD, buffer, 255, 0);
-                	if (charsRead < 0) error("ERROR writing to socket");
+                	// charsRead = recv(establishedConnectionFD, buffer, 255, 0);
+                	// if (charsRead < 0) error("ERROR writing to socket");
+                    recv_wrapper(establishedConnectionFD, buffer, 1);
                     // printf("buffer in _d: %s\n", buffer);
                     // fflush(stdout);
                     
@@ -111,15 +115,15 @@ int main(int argc, char *argv[])
                 
                 // Receive the length of the "big" string
                 strLength = readSizeOfString(establishedConnectionFD, charsRead);
-                printf("length of string in client: %d\n", strLength);
-                fflush(stdout);
+                // printf("length of string in client: %d\n", strLength);
+                // fflush(stdout);
 
                 // Receive string with plaintext, key, and delimiters in between
                 // char bigString[strLength];
                 char * bigString = (char *)malloc(sizeof(char) * strLength);
                 bigString = readBigString(establishedConnectionFD, charsRead, strLength, buffer);
-                printf("string in client: %s\n", bigString);
-                fflush(stdout);
+                // printf("string in client: %s\n", bigString);
+                // fflush(stdout);
                 
                 // // Send confirmation to server
                 // memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
@@ -147,21 +151,22 @@ int main(int argc, char *argv[])
                 encryptString = encryption(strLength, plaintext, key);
                 
                 // // Send encryption string to client
-                printf("cihper: %s\n",encryptString );
-                fflush(stdout);
-                charsWritten = send(establishedConnectionFD, encryptString, strlen(encryptString), 0); // Write to the server
-                if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-                printf("charsWritten 2: %d\n", charsWritten);
-                fflush(stdout);
-                if (charsWritten < strlen(encryptString)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-                fflush(stdout);
+                // printf("cihper: %s\n",encryptString );
+                // fflush(stdout);
+                // charsWritten = send(establishedConnectionFD, encryptString, strlen(encryptString), 0); // Write to the server
+                // if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+                // // printf("charsWritten 2: %d\n", charsWritten);
+                // // fflush(stdout);
+                // if (charsWritten < strlen(encryptString)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+                // fflush(stdout);
+                send_wrapper(establishedConnectionFD, encryptString, strlen(encryptString));
                 
                 // Receive confirmation
-                memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-                charsRead = recv(establishedConnectionFD, buffer, sizeof(buffer)-1, 0);
-                printf("charsRead 1: %d\n", charsRead);
-                fflush(stdout);
-                if (charsRead < 0) error("ERROR writing to socket");
+                // memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+                // charsRead = recv(establishedConnectionFD, buffer, sizeof(buffer)-1, 0);
+                // // printf("charsRead 1: %d\n", charsRead);
+                // // fflush(stdout);
+                // if (charsRead < 0) error("ERROR writing to socket");
                 
                 // Close connection
                 close(establishedConnectionFD); 
@@ -183,11 +188,12 @@ int main(int argc, char *argv[])
 int readSizeOfString(int establishedConnectionFD, int charsRead) {
     int lengthofString = 0;
     
-    charsRead = recv(establishedConnectionFD, &lengthofString, sizeof(int), 0);
-    if (charsRead < 0) error("ERROR writing to socket");
+    // charsRead = recv(establishedConnectionFD, &lengthofString, sizeof(int), 0);
+    // if (charsRead < 0) error("ERROR writing to socket");
+    recv_wrapper(establishedConnectionFD, (char*) &lengthofString, sizeof(int));
     // if 0 then connection was cut
-    printf("readSizeOfString charsRead: %d\n", charsRead);
-    fflush(stdout);
+    // printf("readSizeOfString charsRead: %d\n", charsRead);
+    // fflush(stdout);
     
     return lengthofString;
 }
@@ -199,8 +205,8 @@ char * readBigString(int establishedConnectionFD, int charsRead, int lengthofStr
     do {
         memset(buffer, '\0', sizeof(*buffer)); // Clear out the buffer again for reuse
         charsRead = recv(establishedConnectionFD, buffer, 1000, 0);
-        printf("readBigString charsRead: %d\n", charsRead);
-        fflush(stdout);
+        // printf("readBigString charsRead: %d\n", charsRead);
+        // fflush(stdout);
         if (charsRead < 0) error("ERROR writing to socket");
         strcat(string, buffer);
     } while(!strstr(buffer, "#"));
@@ -275,4 +281,28 @@ char * encryption(int lengthofString, char * pText, char * kText) {
     encryptText[i] = 0;
 
     return encryptText;
+}
+
+void send_wrapper(int fd, char * buffer, int total_length) {
+	int sent = 0;
+    int charsWritten = 0;
+    printf("Server SEND Sending this many: %d\n", total_length);
+	fflush(stdout);
+	while(sent < total_length) {
+		charsWritten = send(fd, buffer + sent, total_length - sent, 0);
+		if (charsWritten < 0) error("CLIENT: ERROR reading from socket");
+		sent += charsWritten;
+	}
+}
+
+void recv_wrapper(int fd, char * buffer, int total_length) {
+	int sent = 0;
+    int charsRead = 0;
+    printf("Server RECV Sending this many: %d\n", total_length);
+    fflush(stdout);
+	while(sent < total_length) {
+		charsRead = recv(fd, buffer + sent, total_length - sent, 0);
+		if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+		sent += charsRead;
+	}
 }
