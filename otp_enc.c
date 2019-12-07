@@ -20,7 +20,7 @@ void recv_wrapper(int fd, char * buffer, int total_length);
 
 int main(int argc, char *argv[])
 {
-	int socketFD, portNumber, charsWritten, charsRead;
+	int socketFD, portNumber, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
 	char buffer[80000];
@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 	send_wrapper(socketFD, bigString, strLength);
 
 	// Receive the encrypted string from the server
+	charsRead = 0;
 	char * encryptedText = readEncryptedString(socketFD, charsRead, strlen(plaintext), buffer);
 	
 	fprintf(stdout, "%s\n", encryptedText);
@@ -157,8 +158,8 @@ bool hasBadChar(char * file) {
 void send_wrapper(int fd, char * buffer, int total_length) {
 	int sent = 0;
 	int charsWritten = 0;
-	printf("Client SEND Sending this many: %d\n", total_length);
-	fflush(stdout);
+	// printf("Client SEND Sending this many: %d\n", total_length);
+	// fflush(stdout);
 	while(sent < total_length) {
 		charsWritten = send(fd, buffer + sent, total_length - sent, 0);
 		if (charsWritten < 0) error("CLIENT: ERROR reading from socket");
@@ -169,8 +170,8 @@ void send_wrapper(int fd, char * buffer, int total_length) {
 void recv_wrapper(int fd, char * buffer, int total_length) {
 	int sent = 0;
 	int charsRead = 0;
-	printf("Client RECV Sending this many: %d\n", total_length);
-	fflush(stdout);
+	// printf("Client RECV Sending this many: %d\n", total_length);
+	// fflush(stdout);
 	while(sent < total_length) {
 		charsRead = recv(fd, buffer + sent, total_length - sent, 0);
 		if (charsRead < 0) error("CLIENT: ERROR reading from socket");
