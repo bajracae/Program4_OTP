@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     
     int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
-	char buffer[80000];
+	char buffer[150000];
 	struct sockaddr_in serverAddress, clientAddress;
     
     if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
                 // Receive the length of the "big" string
                 charsRead = 0;
                 strLength = readSizeOfString(establishedConnectionFD, charsRead);
-                // printf("length of string in client: %d\n", strLength);
+                // printf("length of string from client: %d\n", strLength);
                 // fflush(stdout);
 
                 // Receive string with plaintext, key, and delimiters in between
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
                 char * bigString = (char *)malloc(sizeof(char) * strLength);
                 bigString = readBigString(establishedConnectionFD, charsRead, strLength, buffer);
-                // printf("string in client: %s\n", bigString);
+                // printf("string from client: %s\n", bigString);
                 // fflush(stdout);
 
                 // // Send confirmation to server
@@ -206,10 +206,10 @@ char * readBigString(int establishedConnectionFD, int charsRead, int lengthofStr
     char * string = (char *)malloc(sizeof(char) * lengthofString);
     
     do {
-        memset(buffer, '\0', lengthofString); // Clear out the buffer again for reuse
+        memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
         // charsRead = recv(establishedConnectionFD, buffer, 1000, 0);
-        // // printf("readBigString charsRead: %d\n", charsRead);
-        // // fflush(stdout);
+        // printf("readBigString charsRead: %d\n", charsRead);
+        // fflush(stdout);
         // if (charsRead < 0) error("ERROR writing to socket");
         recv_wrapper(establishedConnectionFD, buffer, lengthofString);
         strcat(string, buffer);

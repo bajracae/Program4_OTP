@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 	int socketFD, portNumber, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char buffer[80000];
+	char buffer[150000];
     
 	if (argc < 3) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
 
@@ -184,7 +184,7 @@ char * readEncryptedString(int socketFD, int charsRead, int plaintextLen, char *
     // char * eText = (char *)malloc(sizeof(char) * plaintextLen);
 
     // for(i = 0; i < plaintextLen; i++) {
-        memset(buffer, '\0', 80000); // Clear out the buffer again for reuse
+        memset(buffer, '\0', plaintextLen); // Clear out the buffer again for reuse
         // charsRead = recv(socketFD, buffer, sizeof(buffer)-1, 0); // Read data from the socket, leaving \0 at end
 		// printf("charsRead IN READ encrypt 1: %d\n", charsRead);
 		// fflush(stdout);

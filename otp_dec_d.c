@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     
     int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
-	char buffer[80000];
+	char buffer[150000];
 	struct sockaddr_in serverAddress, clientAddress;
     
     if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
@@ -64,9 +64,9 @@ int main(int argc, char *argv[])
     pid_t spawnpid = -5;
     
     while(true) {
-        if(numChild >= 5) {
-            break;
-        }
+        // if(numChild >= 5) {
+        //     break;
+        // }
         
         // Accept a connection, blocking if one is not available until one connects
         establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);// Accept
